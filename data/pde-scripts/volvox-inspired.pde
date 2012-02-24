@@ -1,19 +1,15 @@
-jetpack.future.import("menu");
-jetpack.future.import("thunderbird.tabs");
-jetpack.future.import("thunderbird.gloda");
-
-let tb = jetpack.thunderbird;
-
-let exampleScript = <><![CDATA[
 /* Volvox-inspired visualization of your top contact history v0.1.
  *  Andrew Sutherland <asutherland@asutherland.org>
  * Released under the MIT license.
  */
 
 void setup() {
-  size(640,480);
+  size(WIDTH, HEIGHT);
   frameRate(10);
   strokeWeight(1);
+
+  MAX_CX = width / 2 - RING_MARGIN;
+  MAX_CY = height / 2 - RING_MARGIN;
 }
 
 float rotation = 0.0;
@@ -22,14 +18,24 @@ float rotateStep = TWO_PI / 360;
 color baseColor = color(255, 255, 255, 128);
 color fromMeColor = color(192, 192, 255, 128);
 color toMeColor = color(192, 255, 192, 128);
-color lineColor = color(128, 128, 128, 64);
-stroke(lineColor);
+color lineColor = color(128, 128, 128, 96);
+color focusedLineColor = color(128, 128, 128, 192);
+
+color overlayBgColor = color(255, 255, 255, 128);
+color overlayBorderColor = color(192, 192, 192, 128);
+color overlayTextColor = color(0, 0, 0, 255);
+int FONT_SIZE = 20;
+PFont fontA = loadFont("Arial");
+textFont(fontA, FONT_SIZE);
+textAlign(CENTER, CENTER);
 
 int RING_MARGIN = 40;
-int MAX_CX = width / 2 - RING_MARGIN;
-int MAX_CY = height / 2 - RING_MARGIN;
+int MAX_CX = WIDTH / 2 - RING_MARGIN;
+int MAX_CY = HEIGHT / 2 - RING_MARGIN;
 int MAX_VX = 1;
 int MAX_VY = 1;
+
+Object overContact = null;
 
 Array contactInfoArr = {};
 
@@ -44,6 +50,9 @@ void setupData(contactInfos) {
     contactInfos[i].vy = random(-MAX_VY, MAX_VY);
   }
 }
+
+int nmouseX;
+int nmouseY;
 
 void drawContact(contactInfo) {
   // figure the linear length desired for display and that is our
@@ -75,12 +84,22 @@ void drawContact(contactInfo) {
   pushMatrix();
   translate(cx, cy);
 
-
   float startAng;
   float endAng;
   float lipSize = 4.0;
   float outerR = baseR + lipSize;
   float innerR = baseR - lipSize;
+
+  if ((cx - outerR) < nmouseX &&
+      (cx + outerR) > nmouseX &&
+      (cy - outerR) < nmouseY &&
+      (cy + outerR) > nmouseY) {
+    overContact = contactInfo;
+    stroke(focusedLineColor);
+  }
+  else {
+    stroke(lineColor);
+  }
 
   for (int i=0; i < monthCount; i++) {
     Object month = contactInfo.byMonth[i];
@@ -90,7 +109,7 @@ void drawContact(contactInfo) {
     startAng = i * TWO_PI / monthCount + rotation;
     endAng = (i + 1) * TWO_PI / monthCount + rotation;
 
-    float outerCR = outerR + toMeCount * 2 + lipSize;
+    float outerCR = outerR + log(toMeCount + 1) * 8 + lipSize;
     color curToColor = lerpColor(baseColor, toMeColor,
                          constrain(float(toMeCount) / 8, 0.0, 1.0));
     fill(curToColor);
@@ -106,7 +125,7 @@ void drawContact(contactInfo) {
                  baseR * cos(startAng), baseR * sin(startAng));
     endShape(CLOSE);
 
-    float innerCR = innerR - fromMeCount * 2 + lipSize - 1;
+    float innerCR = innerR - log(fromMeCount + 1) * 8 + lipSize - 1;
     color curFromColor = lerpColor(baseColor, fromMeColor,
                            constrain(float(fromMeCount) / 8, 0.0, 1.0));
     fill(curFromColor);
@@ -125,88 +144,40 @@ void drawContact(contactInfo) {
   popMatrix();
 }
 
+void drawOverlay(contactInfo) {
+  int tw = textWidth(contactInfo.contact.name);
+
+  fill(overlayBgColor);
+  stroke(overlayBorderColor);
+  rect(contactInfo.cx - (tw / 2) - 4, contactInfo.cy - (FONT_SIZE / 2) - 2,
+       tw + 8, FONT_SIZE + 4);
+
+  fill(overlayTextColor);
+  text(contactInfo.contact.name, contactInfo.cx, contactInfo.cy);
+
+  stroke(lineColor);
+}
+
 void draw() {
-  background(255);
+  background(255, 255);
   pushMatrix();
   translate(width / 2, height / 2);
+  nmouseX = mouseX - width / 2;
+  nmouseY = mouseY - height / 2;
 
+  overContact = null;
   for (int i=0; i < contactInfoArr.length; i++) {
     drawContact(contactInfoArr[i]);
+  }
+  if (overContact) {
+    drawOverlay(overContact);
   }
 
   popMatrix();
 }
-]]></>.toString();
 
-tb.tabs.defineTabType({
-  name: "top-contact-history",
-  onTabOpened: function(tab, args) {
-    tab.title = "Top Contacts IDE";
-
-    let doc = tab.contentDocument;
-    let win = doc.defaultView;;
-
-    doc.getElementById("code").value = exampleScript;
-
-    // kick off the query
-    win.contactResults = [];
-    tb.gloda.getTopContactsWithPersonalHistory({
-      onHistoryAvailable: function(contactResults) {
-        win.contactResults = contactResults;
-        if (("p" in tab) && tab.p)
-          tab.p.setupData(contactResults);
-      }
-    });
-
-    function stopProcessing() {
-      let canvas = doc.getElementById("canvas");
-      if (("p" in tab) && tab.p) {
-        tab.p.exit();
-        tab.p = null;
-      }
-      if (canvas)
-        canvas.parentNode.removeChild(canvas);
-    }
-
-    function parseAndGo() {
-      let codeString = doc.getElementById("code").value;
-      stopProcessing();
-
-      let canvas = doc.createElement("canvas");
-      canvas.setAttribute("id", "canvas");
-      canvas.setAttribute("width", "640");
-      canvas.setAttribute("height", "480");
-      let canvasHolder = doc.getElementById("canvasHolder");
-      canvasHolder.appendChild(canvas);
-      tab.p = win.Processing(canvas, codeString);
-      tab.p.setupData(win.contactResults);
-    }
-
-    doc.getElementById("reparse").addEventListener("click", parseAndGo, false);
-    doc.getElementById("stop").addEventListener("click", stopProcessing, false);
-  },
-  html: <html xmlns="http://www.w3.org/1999/xhtml">
-    <head>
-      <style type="text/css"><![CDATA[
-        body {
-          background-color: #ffffff;
-          padding: 4px;
-        }
-      ]]></style>
-      <script type="application/javascript" src="resource://jetpack/content/js/processing.js"/>
-    </head>
-    <body>
-      <div id="canvasHolder">
-      </div>
-      <button type="button" id="reparse">Update and Go</button>
-      <button type="button" id="stop">Stop!</button><br />
-      <textarea id="code" rows="60" cols="80">
-      </textarea>
-    </body>
-  </html>
-});
-
-jetpack.menu.tools.add({
-  label: "Visualize Top Contact History",
-  command: function() tb.tabs.openTab("top-contact-history", {})
-});
+void mouseClicked() {
+  if (overContact) {
+    showGlodaSearchTabsForContact(overContact);
+  }
+}

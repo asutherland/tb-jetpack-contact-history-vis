@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <base href="resource://jid1-ymerykb5afrtfq-at-jetpack/contact-history-vis/data/" />
+    <title>Contact History Visualization</title>
+    <style type="text/css">
+      html {
+        font-family: "Lucida Grande", Verdana, sans-serif;
+        font-size: 9pt;
+        background: white;
+      }
+      :focus { outline: none; }
+      a[href] { text-decoration: none }
+    </style>
+    <script type="text/javascript">
+      // development hack for now since we lack the firefox web console or
+      //  other output mechanisms.
+      function logify() {
+        var s = arguments[0] + "";
+        for (var i = 1; i < arguments.length; i++) {
+          s += " " + arguments[i];
+        }
+        dump(s + "\n");
+      }
+      var console = {
+        log: logify,
+        error: logify,
+        info: logify,
+        warn: logify,
+      };
+    </script>
+    <script type="text/javascript" src="lib/processing.js"></script>
+  </head>
+<body id="body" style="border: 0; padding: 0; margin: 0;">
+<div id="canvasHolder">
+</div>
+</body>
+</html>

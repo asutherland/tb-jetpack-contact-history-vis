@@ -1,8 +1,17 @@
 {
-  "name": "contact-history-vis",
-  "license": "MPL 2.0/GPL 2.0/LGPL 2.1",
-  "author": "Andrew Sutherland <asutherland@asutherland.org>",
-  "version": "0.1",
-  "fullName": "Contact History Visualization",
-  "description": "Pretty pictures from your email history."
+    "description": "Pretty pictures from your email history.", 
+    "license": "MPL 2.0/GPL 2.0/LGPL 2.1", 
+    "author": "Andrew Sutherland <asutherland@asutherland.org>", 
+    "applications": [
+        "thunderbird"
+    ], 
+    "version": "0.1", 
+    "dependencies": [
+        "thunderbird", 
+        "addon-kit", 
+        "api-utils"
+    ], 
+    "fullName": "Contact History Visualization", 
+    "id": "jid1-YmERYKB5AFrtfQ", 
+    "name": "contact-history-vis"
 }

@@ -1,0 +1,3 @@
+[submodule "packages/thunderbird"]
+	path = packages/thunderbird
+	url = git://github.com/asutherland/thunderbird-jetpack-libs.git
