@@ -20,13 +20,16 @@ color fromMeColor = color(192, 192, 255, 128);
 color toMeColor = color(192, 255, 192, 128);
 color lineColor = color(128, 128, 128, 96);
 color focusedLineColor = color(128, 128, 128, 192);
+color draggingLineColor = color(128, 128, 192, 192);
 
 color overlayBgColor = color(255, 255, 255, 128);
-color overlayBorderColor = color(192, 192, 192, 128);
-color overlayTextColor = color(0, 0, 0, 255);
-int FONT_SIZE = 20;
+color overlayFocusedTextColor = color(0, 0, 0, 255);
+color overlayUnfocusedTextColor = color(0, 0, 0, 128);
+color overlayDraggingTextColor = color(0, 0, 64, 255);
+int FONT_FOCUSED_SIZE = 20;
+int FONT_UNFOCUSED_SIZE = 14;
 PFont fontA = loadFont("Arial");
-textFont(fontA, FONT_SIZE);
+textFont(fontA, FONT_UNFOCUSED_SIZE);
 textAlign(CENTER, CENTER);
 
 int RING_MARGIN = 40;
@@ -36,6 +39,7 @@ int MAX_VX = 1;
 int MAX_VY = 1;
 
 Object overContact = null;
+Object draggingContact = null;
 
 Array contactInfoArr = {};
 
@@ -68,19 +72,28 @@ void drawContact(contactInfo) {
   contactInfo.rotation = rotation;
 
   // - movement
-  float cx = contactInfo.cx + contactInfo.vx;
-  if (cx > MAX_CX || cx < -MAX_CX) {
-    cx = cx - 2 * contactInfo.vx;
-    contactInfo.vx = -contactInfo.vx;
-  }
-  contactInfo.cx = cx;
+  // only move if we are not being dragged
+  float cx;
+  float cy;
+  if (draggingContact != contactInfo) {
+    cx = contactInfo.cx + contactInfo.vx;
+    if (cx > MAX_CX || cx < -MAX_CX) {
+      cx = cx - 2 * contactInfo.vx;
+      contactInfo.vx = -contactInfo.vx;
+    }
+    contactInfo.cx = cx;
 
-  flaot cy = contactInfo.cy + contactInfo.vy;
-  if (cy > MAX_CY || cy < -MAX_CY) {
-    cy = cy - 2 * contactInfo.vy;
-    contactInfo.vy = -contactInfo.vy;
+    cy = contactInfo.cy + contactInfo.vy;
+    if (cy > MAX_CY || cy < -MAX_CY) {
+      cy = cy - 2 * contactInfo.vy;
+      contactInfo.vy = -contactInfo.vy;
+    }
+    contactInfo.cy = cy;
   }
-  contactInfo.cy = cy;
+  else {
+    cx = contactInfo.cx;
+    cy = contactInfo.cy;
+  }
   pushMatrix();
   translate(cx, cy);
 
@@ -90,15 +103,21 @@ void drawContact(contactInfo) {
   float outerR = baseR + lipSize;
   float innerR = baseR - lipSize;
 
+  boolean focused;
   if ((cx - outerR) < nmouseX &&
       (cx + outerR) > nmouseX &&
       (cy - outerR) < nmouseY &&
       (cy + outerR) > nmouseY) {
     overContact = contactInfo;
     stroke(focusedLineColor);
+    focused = true;
   }
   else {
     stroke(lineColor);
+    focused = false;
+  }
+  if (draggingContact == contactInfo) {
+    stroke(draggingLineColor);
   }
 
   for (int i=0; i < monthCount; i++) {
@@ -141,25 +160,43 @@ void drawContact(contactInfo) {
                  baseR * cos(startAng), baseR * sin(startAng));
     endShape(CLOSE);
   }
+
+
+  if (focused) {
+    textSize(FONT_FOCUSED_SIZE);
+    int tw = textWidth(contactInfo.contact.name);
+
+    fill(overlayBgColor);
+    stroke(null);
+    rect(-(tw / 2) - 4,
+         -(FONT_FOCUSED_SIZE / 2) - 2,
+         tw + 8, FONT_FOCUSED_SIZE + 4);
+    if (draggingContact == contactInfo)
+      fill(overlayDraggingTextColor);
+    else
+      fill(overlayFocusedTextColor);
+  }
+  else {
+    textSize(FONT_UNFOCUSED_SIZE);
+    fill(overlayUnfocusedTextColor);
+  }
+  text(contactInfo.contact.name, 0, 0);
+
   popMatrix();
-}
-
-void drawOverlay(contactInfo) {
-  int tw = textWidth(contactInfo.contact.name);
-
-  fill(overlayBgColor);
-  stroke(overlayBorderColor);
-  rect(contactInfo.cx - (tw / 2) - 4, contactInfo.cy - (FONT_SIZE / 2) - 2,
-       tw + 8, FONT_SIZE + 4);
-
-  fill(overlayTextColor);
-  text(contactInfo.contact.name, contactInfo.cx, contactInfo.cy);
-
-  stroke(lineColor);
 }
 
 void draw() {
   background(255, 255);
+
+  if (draggingContact != null) {
+    stroke(0);
+    fill(224);
+    rect(1, height - 60, 239, 59);
+    fill(0);
+    textSize(14);
+    text("Drop here to show in gloda", 120, height - 30);
+  }
+
   pushMatrix();
   translate(width / 2, height / 2);
   nmouseX = mouseX - width / 2;
@@ -169,15 +206,53 @@ void draw() {
   for (int i=0; i < contactInfoArr.length; i++) {
     drawContact(contactInfoArr[i]);
   }
-  if (overContact) {
-    drawOverlay(overContact);
-  }
-
   popMatrix();
 }
 
-void mouseClicked() {
-  if (overContact) {
-    showGlodaSearchTabsForContact(overContact);
+int mouseDeltaX = 0;
+int mouseDeltaY = 0;
+float funkyVelX = 0;
+float funkyVelY = 0;
+void mousePressed() {
+  nmouseX = mouseX - width / 2;
+  nmouseY = mouseY - height / 2;
+
+  funkyVelX = 0;
+  funkyVelY = 0;
+
+  if (overContact != null) {
+    draggingContact = overContact;
+    mouseDeltaX = nmouseX - draggingContact.cx;
+    mouseDeltaY = nmouseY - draggingContact.cy;
   }
+}
+void mouseDragged() {
+  if (draggingContact != null) {
+    nmouseX = mouseX - width / 2;
+    nmouseY = mouseY - height / 2;
+
+    draggingContact.cx = nmouseX - mouseDeltaX;
+    draggingContact.cy = nmouseY - mouseDeltaY;
+
+    funkyVelX *= 0.7;
+    funkyVelY *= 0.7;
+    funkyVelX += mouseX - pmouseX;
+    funkyVelY += mouseY - pmouseY;
+  }
+}
+void mouseReleased() {
+  if (draggingContact != null) {
+    draggingContact.vx = constrain(funkyVelX * 0.08, -6, 6);
+    draggingContact.vy = constrain(funkyVelY * 0.08, -6, 6);
+
+    if (mouseX > 0 && mouseX < 240 &&
+        mouseY > (height - 60) && mouseY < height) {
+      showGlodaSearchTabsForContact(draggingContact);
+    }
+
+    draggingContact = null;
+  }
+}
+
+void mouseClick() {
 }
